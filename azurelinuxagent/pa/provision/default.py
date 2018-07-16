@@ -54,6 +54,7 @@ class ProvisionHandler(object):
         self.protocol_util = get_protocol_util()
 
     def run(self):
+        self.report_ready()
         if not conf.get_provision_enabled():
             logger.info("Provisioning is disabled, skipping.")
             self.write_provisioned()
@@ -78,7 +79,7 @@ class ProvisionHandler(object):
             ovf_env = self.protocol_util.copy_ovf_env()
 
             self.protocol_util.get_protocol_by_file()
-            self.report_not_ready("Provisioning", "Starting")
+            # self.report_not_ready("Provisioning", "Starting")
             logger.info("Starting provisioning")
 
             self.provision(ovf_env)

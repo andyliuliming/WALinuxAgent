@@ -43,6 +43,7 @@ class Agent(object):
         """
         Initialize agent running environment.
         """
+        print ("################# 1")
         self.conf_file_path = conf_file_path
         self.osutil = get_osutil()
 
@@ -67,7 +68,7 @@ class Agent(object):
         # logger.add_logger_appender(logger.AppenderType.TELEMETRY,
         #                            logger.LogLevel.WARNING,
         #                            path=event.add_log_event)
-
+        print ("################# 2")
         ext_log_dir = conf.get_ext_log_dir()
         try:
             if os.path.isfile(ext_log_dir):
@@ -78,10 +79,12 @@ class Agent(object):
             logger.error(
                 "Exception occurred while creating extension "
                 "log directory {0}: {1}".format(ext_log_dir, e))
-
+        print ("################# 3")
         #Init event reporter
+        print ("########## lib dir: {0}".format(conf.get_lib_dir()))
         event.init_event_status(conf.get_lib_dir())
         event_dir = os.path.join(conf.get_lib_dir(), "events")
+        print ("########## event_dir dir: {0}".format(event_dir))
         event.init_event_logger(event_dir)
         event.enable_unhandled_err_dump("WALA")
 
@@ -165,7 +168,9 @@ def main(args=[]):
             elif command == "register-service":
                 agent.register_service()
             elif command == "daemon":
+                print ("########### dddddd1")
                 agent.daemon()
+                print ("########### dddddd1")
             elif command == "run-exthandlers":
                 agent.run_exthandlers()
             elif command == "show-configuration":

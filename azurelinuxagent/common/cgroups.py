@@ -506,6 +506,7 @@ class CGroups(object):
         Actual collection of metrics from cgroups happens in the -run-exthandlers instance
         """
         cgroups_enabled = True
+        logger.info("#########CGroups.enabled():{0}".format(CGroups.enabled()))
         if CGroups.enabled():
             try:
                 CGroups._osutil.mount_cgroups()
@@ -520,10 +521,12 @@ class CGroups(object):
                         logger.info("Daemon process pid {0} cgroup managed by systemd".format(pid))
                 status = "OK"
             except CGroupsException as cge:
+                logger.info("####### cgoupexception happens.")
                 status = cge.msg
                 cgroups_enabled = False
                 CGroups.disable()
         else:
+            logger.info("####### cgropu not supported.")
             status = "Cgroups not supported by platform"
 
         from azurelinuxagent.common.event import add_event, WALAEventOperation
