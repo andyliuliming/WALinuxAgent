@@ -23,7 +23,6 @@ import re
 import shutil
 import threading
 import time
-
 import azurelinuxagent.common.conf as conf
 import azurelinuxagent.common.logger as logger
 import azurelinuxagent.common.utils.fileutil as fileutil
@@ -42,8 +41,9 @@ from azurelinuxagent.common.utils.restutil import IOErrorCounter
 OVF_FILE_NAME = "ovf-env.xml"
 TAG_FILE_NAME = "useMetadataEndpoint.tag"
 PROTOCOL_FILE_NAME = "Protocol"
-MAX_RETRY = 360
-PROBE_INTERVAL = 10
+MAX_RETRY = 3600
+PROBE_INTERVAL = 1
+PRE_DETECT_MAX_RETRY = 2
 ENDPOINT_FILE_NAME = "WireServerEndpoint"
 PASSWORD_PATTERN = "<UserPassword>.*?<"
 PASSWORD_REPLACEMENT = "<UserPassword>*<"
@@ -54,7 +54,6 @@ class _nameset(set):
         if name in self:
             return name
         raise AttributeError("%s not a valid value" % name)
-
 
 prots = _nameset(("WireProtocol", "MetadataProtocol"))
 
@@ -74,6 +73,11 @@ class ProtocolUtil(object):
         self.protocol = None
         self.osutil = get_osutil()
         self.dhcp_handler = get_dhcp_handler()
+
+        self.wire_protocol = None
+        self.wire_lock = threading.Lock()
+        self.metadata_protocol = None
+        self.metadata_lock = threading.Lock()
 
     def copy_ovf_env(self):
         """
@@ -119,7 +123,12 @@ class ProtocolUtil(object):
                                 "{0} to {1}: {2}".format(tag_file_path,
                                                          tag_file_path,
                                                          ustr(e)))
-        self._cleanup_ovf_dvd()
+        # defer the clean up to another thread to save time for provisioning.
+        # can do this because do not handle the error for now.
+        clean_t = threading.Thread(
+            target=self._cleanup_ovf_dvd,
+            name="cleanup_dvd")
+        clean_t.start()
 
         return ovfenv
 
@@ -167,62 +176,79 @@ class ProtocolUtil(object):
             raise OSUtilError(ustr(e))
 
     def _detect_wire_protocol(self):
-        endpoint = self.dhcp_handler.endpoint
-        if endpoint is None:
-            '''
-            Check if DHCP can be used to get the wire protocol endpoint
-            '''
-            (dhcp_available, conf_endpoint) =  self.osutil.is_dhcp_available()
-            if dhcp_available:
-                logger.info("WireServer endpoint is not found. Rerun dhcp handler")
+        """
+        detect the wire protocol.
+        """
+        self.wire_lock.acquire()
+        try:
+            if self.wire_protocol is not None:
+                return self.wire_protocol
+            endpoint = self.dhcp_handler.endpoint
+            if endpoint is None:
+                logger.info(
+                    "WireServer endpoint is not found. Rerun dhcp handler")
                 try:
                     self.dhcp_handler.run()
                 except DhcpError as e:
                     raise ProtocolError(ustr(e))
                 endpoint = self.dhcp_handler.endpoint
-            else:
-                logger.info("_detect_wire_protocol: DHCP not available")
-                endpoint = self._get_wireserver_endpoint()
-                if endpoint == None:
-                    endpoint = conf_endpoint
-                    logger.info("Using hardcoded WireServer endpoint {0}", endpoint)
-                else:
-                    logger.info("WireServer endpoint {0} read from file", endpoint)
 
-        try:
-            protocol = WireProtocol(endpoint)
-            protocol.detect()
-            self._set_wireserver_endpoint(endpoint)
-            return protocol
-        except ProtocolError as e:
-            logger.info("WireServer is not responding. Reset endpoint")
-            self.dhcp_handler.endpoint = None
-            self.dhcp_handler.skip_cache = True
-            raise e
+            try:
+                protocol = WireProtocol(endpoint)
+                protocol.detect()
+                self._set_wireserver_endpoint(endpoint)
+                # save it for other thread found it.
+                self.wire_protocol = protocol
+                return protocol
+            except ProtocolError as e:
+                logger.info("WireServer is not responding. Reset endpoint")
+                self.dhcp_handler.endpoint = None
+                self.dhcp_handler.skip_cache = True
+                raise e
+        finally:
+            self.wire_lock.release()
 
     def _detect_metadata_protocol(self):
-        protocol = MetadataProtocol()
-        protocol.detect()
-        return protocol
+        """
+        detect the metadata protocol
+        """
+        self.metadata_lock.acquire()
+        try:
+            if self.metadata_protocol is not None:
+                return self.metadata_protocol
+            protocol = MetadataProtocol()
+            protocol.detect()
+            self.metadata_protocol = protocol
+            return protocol
+        finally:
+            self.metadata_lock.release()
 
     def _detect_protocol(self, protocols):
         """
         Probe protocol endpoints in turn.
         """
         self.clear_protocol()
-
         for retry in range(0, MAX_RETRY):
             for protocol_name in protocols:
                 try:
-                    protocol = self._detect_wire_protocol() \
-                                if protocol_name == prots.WireProtocol \
-                                else self._detect_metadata_protocol()
+                    if protocol_name == prots.WireProtocol:
+                        if self.wire_protocol is not None:
+                            # check whether we already detected the protocol
+                            # in the pre_detect_async
+                            protocol = self.wire_protocol
+                        else:
+                            protocol = self._detect_wire_protocol()
+                    else:
+                        if self.metadata_protocol is not None:
+                            protocol = self.metadata_protocol
+                        else:
+                            protocol = self._detect_metadata_protocol()
 
                     return (protocol_name, protocol)
 
                 except ProtocolError as e:
                     logger.info("Protocol endpoint not found: {0}, {1}",
-                                protocol_name, e)
+                        protocol_name, e)
 
             if retry < MAX_RETRY - 1:
                 logger.info("Retry detect protocols: retry={0}", retry)
@@ -244,8 +270,7 @@ class ProtocolUtil(object):
         elif protocol_name == prots.MetadataProtocol:
             return MetadataProtocol()
         else:
-            raise ProtocolNotFoundError(("Unknown protocol: {0}"
-                                         "").format(protocol_name))
+            raise ProtocolNotFoundError("Unknown protocol: {0}".format(protocol_name))
 
     def _save_protocol(self, protocol_name):
         """
@@ -263,6 +288,8 @@ class ProtocolUtil(object):
         """
         logger.info("Clean protocol")
         self.protocol = None
+        self.wire_protocol = None
+        self.metadata_protocol = None
         protocol_file_path = self._get_protocol_file_path()
         if not os.path.isfile(protocol_file_path):
             return
@@ -274,6 +301,44 @@ class ProtocolUtil(object):
             if e.errno == errno.ENOENT:
                 return
             logger.error("Failed to clear protocol endpoint: {0}", e)
+
+    def _detect_protocol_daemon(self, stopped, protocol_name):
+        for retry in range(0, PRE_DETECT_MAX_RETRY):
+            try:
+                protocol = None
+                if protocol_name == prots.WireProtocol:
+                    if self.wire_protocol is not None:
+                        break
+                    protocol = self._detect_wire_protocol()
+                elif protocol_name == prots.MetadataProtocol:
+                    if self.metadata_protocol is not None:
+                        break
+                    protocol = self._detect_metadata_protocol()
+                else
+                    raise ProtocolNotFoundError("Unknown protocol: {0}".format(protocol_name))
+                if protocol is not None:
+                        break
+            except ProtocolError as e:
+                logger.info(
+                    "Protocol endpoint not found when pre-detect: {0}, {1}",
+                    protocol_name, e)
+
+            if retry < PRE_DETECT_MAX_RETRY - 1:
+                logger.info("Retry pre-detect protocols: retry={0}", retry)
+                time.sleep(PROBE_INTERVAL)
+
+    def pre_detect_async(self):
+        """
+        detect the protocol to save time for provisioning.
+        """
+        detect_wire_t = threading.Thread(
+            target=self._detect_protocol_daemon,
+            args=(prots.WireProtocol,))
+        detect_wire_t.start()
+        detect_meta_t = threading.Thread(
+            target=self._detect_protocol_daemon,
+            args=(prots.MetadataProtocol,))
+        detect_meta_t.start()
 
     def get_protocol(self, by_file=False):
         """

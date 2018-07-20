@@ -17,7 +17,7 @@
 
 from tests.tools import *
 from azurelinuxagent.common.exception import *
-from azurelinuxagent.common.protocol import get_protocol_util, \
+from azurelinuxagent.common.protocol.util import get_protocol_util, \
                                             TAG_FILE_NAME
 
 @patch("time.sleep")
