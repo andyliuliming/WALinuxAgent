@@ -94,7 +94,7 @@ class WireProtocol(Protocol):
         self.client = WireClient(self.endpoint)
 
     def detect(self):
-        self.client.check_wire_protocol_version()
+        # self.client.check_wire_protocol_version()
 
         trans_prv_file = os.path.join(conf.get_lib_dir(),
                                       TRANSPORT_PRV_FILE_NAME)
@@ -964,21 +964,21 @@ class WireClient(object):
         if os.path.exists(agent_manifest):
             os.unlink(agent_manifest)
 
-    def check_wire_protocol_version(self):
-        uri = VERSION_INFO_URI.format(self.endpoint)
-        version_info_xml = self.fetch_config(uri, None)
-        version_info = VersionInfo(version_info_xml)
+    # def check_wire_protocol_version(self):
+    #     uri = VERSION_INFO_URI.format(self.endpoint)
+    #     version_info_xml = self.fetch_config(uri, None)
+    #     version_info = VersionInfo(version_info_xml)
 
-        preferred = version_info.get_preferred()
-        if PROTOCOL_VERSION == preferred:
-            logger.info("Wire protocol version:{0}", PROTOCOL_VERSION)
-        elif PROTOCOL_VERSION in version_info.get_supported():
-            logger.info("Wire protocol version:{0}", PROTOCOL_VERSION)
-            logger.info("Server preferred version:{0}", preferred)
-        else:
-            error = ("Agent supported wire protocol version: {0} was not "
-                     "advised by Fabric.").format(PROTOCOL_VERSION)
-            raise ProtocolNotFoundError(error)
+    #     preferred = version_info.get_preferred()
+    #     if PROTOCOL_VERSION == preferred:
+    #         logger.info("Wire protocol version:{0}", PROTOCOL_VERSION)
+    #     elif PROTOCOL_VERSION in version_info.get_supported():
+    #         logger.info("Wire protocol version:{0}", PROTOCOL_VERSION)
+    #         logger.info("Server preferred version:{0}", preferred)
+    #     else:
+    #         error = ("Agent supported wire protocol version: {0} was not "
+    #                  "advised by Fabric.").format(PROTOCOL_VERSION)
+    #         raise ProtocolNotFoundError(error)
 
     def upload_status_blob(self):
         self.update_goal_state()

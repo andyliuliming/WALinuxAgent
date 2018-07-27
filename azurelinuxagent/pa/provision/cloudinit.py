@@ -56,7 +56,9 @@ class CloudInitProvisionHandler(ProvisionHandler):
             utc_start = datetime.utcnow()
             logger.info("Running CloudInit provisioning handler")
             self.wait_for_ovfenv()
+            logger.warn("######## before get protocol.")
             self.protocol_util.get_protocol()
+            logger.warn("######## after get protocol.")
             self.report_not_ready("Provisioning", "Starting")
 
             thumbprint = self.wait_for_ssh_host_key()
