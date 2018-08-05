@@ -314,7 +314,7 @@ class ProtocolUtil(object):
                     if self.metadata_protocol is not None:
                         break
                     protocol = self._detect_metadata_protocol()
-                else
+                else:
                     raise ProtocolNotFoundError("Unknown protocol: {0}".format(protocol_name))
                 if protocol is not None:
                         break
