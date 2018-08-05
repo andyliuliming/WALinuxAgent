@@ -36,8 +36,10 @@ from azurelinuxagent.common.version import AGENT_NAME, AGENT_LONG_VERSION, \
                                      DISTRO_NAME, DISTRO_VERSION, \
                                      PY_VERSION_MAJOR, PY_VERSION_MINOR, \
                                      PY_VERSION_MICRO, GOAL_STATE_AGENT_VERSION
+
 from azurelinuxagent.common.osutil import get_osutil
 from azurelinuxagent.common.utils import fileutil
+from azurelinuxagent.common.utils import restutil
 
 class Agent(object):
     def __init__(self, verbose, conf_file_path=None):
@@ -94,6 +96,13 @@ class Agent(object):
         child_args = None \
             if self.conf_file_path is None \
                 else "-configuration-path:{0}".format(self.conf_file_path)
+
+        try:
+            response = restutil.http_get("https://www.bing.com", max_retry=1)
+            status_ok = restutil.request_succeeded(response)
+            logger.info("#### network ok! {0}".format(status_ok))
+        except HttpError as e:
+            logger.warn("#### network not ok.", ustr(e))
 
         from azurelinuxagent.daemon import get_daemon_handler
         daemon_handler = get_daemon_handler()
