@@ -98,6 +98,7 @@ class Agent(object):
                 else "-configuration-path:{0}".format(self.conf_file_path)
 
         try:
+            logger.warn("#### start first flight.")
             response = restutil.http_get("https://www.bing.com", max_retry=1)
             status_ok = restutil.request_succeeded(response)
             logger.info("#### network ok! {0}".format(status_ok))
