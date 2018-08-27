@@ -80,12 +80,22 @@ class ProvisionHandler(object):
             self.protocol_util.get_protocol(by_file=True)
             self.report_not_ready("Provisioning", "Starting")
             logger.info("Starting provisioning")
-
+            
+            ssh_conf_file_last_modify_time,_ = self._ssh_conf_file_modified(None)
             self.provision(ovf_env)
 
-            thumbprint = self.reg_ssh_host_key()
-            self.osutil.restart_ssh_service()
+            if conf.get_regenerate_ssh_host_key():
+                self.reg_ssh_host_key()
 
+            # check whether the sshd config file modified
+            # if modified, restart the ssh service.
+            _,ssh_conf_modified = self._ssh_conf_file_modified(ssh_conf_file_last_modify_time)
+
+            if ssh_conf_modified:
+                logger.info("ssh config file changed, need to restart ssh service")
+                self.osutil.restart_ssh_service()
+
+            thumbprint = self.get_ssh_host_key_thumbprint()
             self.write_provisioned()
 
             self.report_event("Provisioning succeeded ({0}s)".format(self._get_uptime_seconds()),
@@ -103,6 +113,13 @@ class ProvisionHandler(object):
             self.report_not_ready("ProvisioningFailed", ustr(e))
             self.report_event(msg, is_success=False)
             return
+
+    def _ssh_conf_file_modified(self, last_modify_time):
+        conf_file_path = conf.get_sshd_conf_file_path()
+        current_modify_time = None
+        if os.path.exists(conf_file_path):
+            current_modify_time = os.path.getmtime(conf_file_path)
+        return current_modify_time, current_modify_time != last_modify_time
 
     @staticmethod
     def validate_cloud_init(is_expected=True):
@@ -139,20 +156,18 @@ class ProvisionHandler(object):
 
     def reg_ssh_host_key(self):
         keypair_type = conf.get_ssh_host_keypair_type()
-        if conf.get_regenerate_ssh_host_key():
-            fileutil.rm_files(conf.get_ssh_key_glob())
-            if conf.get_ssh_host_keypair_mode() == "auto":
-                '''
-                The -A option generates all supported key types.
-                This is supported since OpenSSH 5.9 (2011).
-                '''
-                shellutil.run("ssh-keygen -A")
-            else:
-                keygen_cmd = "ssh-keygen -N '' -t {0} -f {1}"
-                shellutil.run(keygen_cmd.
-                              format(keypair_type,
-                                     conf.get_ssh_key_private_path()))
-        return self.get_ssh_host_key_thumbprint()
+        fileutil.rm_files(conf.get_ssh_key_glob())
+        if conf.get_ssh_host_keypair_mode() == "auto":
+            '''
+            The -A option generates all supported key types.
+            This is supported since OpenSSH 5.9 (2011).
+            '''
+            shellutil.run("ssh-keygen -A")
+        else:
+            keygen_cmd = "ssh-keygen -N '' -t {0} -f {1}"
+            shellutil.run(keygen_cmd.
+                            format(keypair_type,
+                                    conf.get_ssh_key_private_path()))
 
     def get_ssh_host_key_thumbprint(self, chk_err=True):
         cmd = "ssh-keygen -lf {0}".format(conf.get_ssh_key_public_path())
