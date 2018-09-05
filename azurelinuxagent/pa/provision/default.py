@@ -116,8 +116,10 @@ class ProvisionHandler(object):
 
     def _ssh_conf_file_modified(self, last_modify_time):
         conf_file_path = conf.get_sshd_conf_file_path()
+        print ("############ conf_file_path:{0}".format(conf_file_path))
         current_modify_time = None
         if os.path.exists(conf_file_path):
+            print ("############ conf_file_pathxx")
             current_modify_time = os.path.getmtime(conf_file_path)
         return current_modify_time, current_modify_time != last_modify_time
 
