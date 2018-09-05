@@ -176,7 +176,7 @@ class TestProvision(AgentTestCase):
            return_value='B9F3C233-9913-9F42-8EB3-BA656DF32502')
     @patch('azurelinuxagent.pa.provision.default.ProvisionHandler.write_agent_disabled')
     @patch("os.path.exists", return_value=True)
-    @patch("os.path.getmtime", new=)
+    # @patch("os.path.getmtime", new=)
     def _provision_test(self,
                         distro_name,
                         distro_version,
