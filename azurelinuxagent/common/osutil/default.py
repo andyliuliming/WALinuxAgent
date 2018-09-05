@@ -1091,6 +1091,7 @@ class DefaultOSUtil(object):
         pass
 
     def restart_ssh_service(self):
+        logger.warn("####### strange restart_ssh_service.")
         pass
 
     def route_add(self, net, mask, gateway):
