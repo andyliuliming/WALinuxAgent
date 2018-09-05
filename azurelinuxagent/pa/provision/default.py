@@ -80,19 +80,14 @@ class ProvisionHandler(object):
             self.protocol_util.get_protocol(by_file=True)
             self.report_not_ready("Provisioning", "Starting")
             logger.info("Starting provisioning")
-            
-            ssh_conf_file_last_modify_time,_ = self._ssh_conf_file_modified(None)
+
             self.provision(ovf_env)
 
             if conf.get_regenerate_ssh_host_key():
                 self.reg_ssh_host_key()
 
-            # check whether the sshd config file modified
-            # if modified, restart the ssh service.
-            _,ssh_conf_modified = self._ssh_conf_file_modified(ssh_conf_file_last_modify_time)
-
-            if ssh_conf_modified:
-                logger.info("ssh config file changed, need to restart ssh service")
+            if not (conf.get_regenerate_ssh_host_key() or conf.get_config_sshd()):
+                logger.info("no need to restart ssh service")
                 self.osutil.restart_ssh_service()
 
             thumbprint = self.get_ssh_host_key_thumbprint()
@@ -114,14 +109,14 @@ class ProvisionHandler(object):
             self.report_event(msg, is_success=False)
             return
 
-    def _ssh_conf_file_modified(self, last_modify_time):
-        conf_file_path = conf.get_sshd_conf_file_path()
-        print ("############ conf_file_path:{0}".format(conf_file_path))
-        current_modify_time = None
-        if os.path.exists(conf_file_path):
-            print ("############ conf_file_pathxx")
-            current_modify_time = os.path.getmtime(conf_file_path)
-        return current_modify_time, current_modify_time != last_modify_time
+    # def _ssh_conf_file_modified(self, last_modify_time):
+    #     conf_file_path = conf.get_sshd_conf_file_path()
+    #     print ("############ conf_file_path:{0}".format(conf_file_path))
+    #     current_modify_time = None
+    #     if os.path.exists(conf_file_path):
+    #         print ("############ conf_file_pathxx")
+    #         current_modify_time = os.path.getmtime(conf_file_path)
+    #     return current_modify_time, current_modify_time != last_modify_time
 
     @staticmethod
     def validate_cloud_init(is_expected=True):
@@ -271,7 +266,8 @@ class ProvisionHandler(object):
         logger.info("Configure sshd")
         print ("########## 3")
         # disable_ssh_password_auth 
-        self.osutil.conf_sshd(ovfenv.disable_ssh_password_auth)
+        if conf.get_config_sshd()
+            self.osutil.conf_sshd(ovfenv.disable_ssh_password_auth)
         print ("########## 4    ")
         self.deploy_ssh_pubkeys(ovfenv)
         self.deploy_ssh_keypairs(ovfenv)
