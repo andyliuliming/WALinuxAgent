@@ -86,8 +86,8 @@ class ProvisionHandler(object):
             if conf.get_regenerate_ssh_host_key():
                 self.reg_ssh_host_key()
 
-            if not (conf.get_regenerate_ssh_host_key() or conf.get_config_sshd()):
-                logger.info("no need to restart ssh service")
+            if conf.get_regenerate_ssh_host_key() or conf.get_config_sshd():
+                logger.info("need to restart ssh service")
                 self.osutil.restart_ssh_service()
 
             thumbprint = self.get_ssh_host_key_thumbprint()

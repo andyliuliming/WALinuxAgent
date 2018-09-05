@@ -105,6 +105,7 @@ __SWITCH_OPTIONS__ = {
     "Provisioning.DecodeCustomData": False,
     "Provisioning.ExecuteCustomData": False,
     "Provisioning.MonitorHostName": False,
+    "Provisioning.ConfigSSHD": True,
     "DetectScvmmEnv": False,
     "ResourceDisk.Format": False,
     "ResourceDisk.EnableSwap": False,
@@ -305,6 +306,10 @@ def get_monitor_hostname(conf=__conf__):
     return conf.get_switch("Provisioning.MonitorHostName", False)
 
 
+def get_config_sshd(conf=__conf__):
+    return conf.get_switch("Provisioning.ConfigSSHD", True)
+
+
 def get_httpproxy_host(conf=__conf__):
     return conf.get("HttpProxy.Host", None)
 
@@ -367,7 +372,3 @@ def get_disable_agent_file_path(conf=__conf__):
 
 def get_cgroups_enforce_limits(conf=__conf__):
     return conf.get_switch("CGroups.EnforceLimits", True)
-
-
-def get_config_sshd(conf=__conf__):
-    return conf.get_switch("OS.ConfigSSHD", True)
