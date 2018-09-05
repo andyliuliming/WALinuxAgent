@@ -202,7 +202,7 @@ class TestProvision(AgentTestCase):
 
         mock_osutil = MagicMock()
         mock_osutil.decode_customdata = Mock(return_value="")
-        mock_osutil.
+        # mock_osutil.
         
         print ("############ xx1")
         ph.osutil = mock_osutil
