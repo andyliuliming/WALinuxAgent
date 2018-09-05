@@ -200,17 +200,19 @@ class TestProvision(AgentTestCase):
 
         mock_osutil = MagicMock()
         mock_osutil.decode_customdata = Mock(return_value="")
-
+        print ("############ xx1")
         ph.osutil = mock_osutil
         ph.protocol_util.osutil = mock_osutil
         ph.protocol_util.get_protocol = MagicMock()
 
         conf.get_regenerate_ssh_host_key = Mock(return_value=True)
         conf.get_dvd_mount_point = Mock(return_value=self.tmp_dir)
+
         ovfenv_file = os.path.join(self.tmp_dir, OVF_FILE_NAME)
         ovfenv_data = load_data(ovf_file)
         fileutil.write_file(ovfenv_file, ovfenv_data)
 
+        # write the ssh conf file
         ph.run()
 
         if expect_success:

@@ -239,9 +239,10 @@ class ProvisionHandler(object):
 
             logger.info("Publish hostname [{0}]".format(ovfenv.hostname))
             self.osutil.publish_hostname(ovfenv.hostname)
-
+            print ("########## 1")
             self.config_user_account(ovfenv)
 
+            print ("########## 2")
             self.save_customdata(ovfenv)
 
             if conf.get_delete_root_password():
@@ -266,8 +267,9 @@ class ProvisionHandler(object):
                                 nopasswd=ovfenv.user_password is None)
 
         logger.info("Configure sshd")
+        print ("########## 3")
         self.osutil.conf_sshd(ovfenv.disable_ssh_password_auth)
-
+        print ("########## 4    ")
         self.deploy_ssh_pubkeys(ovfenv)
         self.deploy_ssh_keypairs(ovfenv)
 
