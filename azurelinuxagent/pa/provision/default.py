@@ -270,6 +270,7 @@ class ProvisionHandler(object):
 
         logger.info("Configure sshd")
         print ("########## 3")
+        # disable_ssh_password_auth 
         self.osutil.conf_sshd(ovfenv.disable_ssh_password_auth)
         print ("########## 4    ")
         self.deploy_ssh_pubkeys(ovfenv)
